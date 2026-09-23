@@ -1,5 +1,6 @@
 import os
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 from .extensions import db, login_manager, csrf, limiter
 from .models import User
 
@@ -10,8 +11,13 @@ def create_app(config_class='config.DevelopmentConfig'):
     
     app.config.from_object(config_class)
 
+    # Configure ProxyFix to trust the Render load balancer
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
     # Initialize extensions
     db.init_app(app)
+    from .extensions import migrate
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
     limiter.init_app(app)
