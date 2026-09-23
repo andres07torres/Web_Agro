@@ -5,7 +5,7 @@ services:
       - "5000:5000"
     environment:
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-dev_key_agro_visor_9921}
-      - DATABASE_URL=postgresql://cuencas_user:cuencas_pass@db:5432/cuencas_db
+      - DATABASE_URL=${DATABASE_URL:-postgresql://cuencas_user:cuencas_pass@db:5432/cuencas_db}
       - FLASK_DEBUG=False
     depends_on:
       db:
