@@ -51,7 +51,7 @@ def create_app(config_class='config.DevelopmentConfig'):
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: https://*.basemaps.cartocdn.com https://tile.openstreetmap.org https://server.arcgisonline.com https://*.googleusercontent.com https://unpkg.com; "
-            "connect-src 'self';"
+            "connect-src 'self' https://overpass-api.de;"
         )
         response.headers['Content-Security-Policy'] = csp
         if not app.debug:

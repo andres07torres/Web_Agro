@@ -114,6 +114,46 @@ function cargarGeoJSON(event) {
             
             map.fitBounds(capaGeoJSON.getBounds());
             
+            // --- NUEVO: Extraer ríos usando Overpass API dentro de esta zona ---
+            if (window.addNotification) window.addNotification("Buscando ríos en la zona...");
+            
+            const bounds = capaGeoJSON.getBounds();
+            const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
+            const query = `[out:json];(way["waterway"="river"](${bbox});way["waterway"="stream"](${bbox}););out body;>;out skel qt;`;
+            
+            fetch('https://overpass-api.de/api/interpreter', {
+                method: 'POST',
+                body: query
+            })
+            .then(res => res.json())
+            .then(data => {
+                const nodes = {};
+                // Guardar coordenadas de cada nodo
+                data.elements.forEach(e => {
+                    if (e.type === 'node') nodes[e.id] = [e.lat, e.lon];
+                });
+                
+                // Dibujar las líneas de los ríos
+                let riosEncontrados = 0;
+                data.elements.forEach(e => {
+                    if (e.type === 'way' && e.tags && e.tags.waterway) {
+                        const latlngs = e.nodes.map(id => nodes[id]).filter(coord => coord);
+                        if (latlngs.length > 0) {
+                            L.polyline(latlngs, { 
+                                color: '#0078FF', // Azul intenso para los ríos
+                                weight: e.tags.waterway === 'river' ? 3 : 1.5, // Ríos principales más gruesos
+                                opacity: 0.8
+                            }).bindPopup(`<b>Agua:</b> ${e.tags.name || 'Desconocido'} (${e.tags.waterway})`)
+                              .addTo(map);
+                            riosEncontrados++;
+                        }
+                    }
+                });
+                
+                if (window.addNotification) window.addNotification(`Se dibujaron ${riosEncontrados} segmentos de río.`);
+            })
+            .catch(err => console.error("Error buscando ríos:", err));
+            
             // Agregar al historial visual
             document.getElementById('activeFiles').innerHTML += `
                 <div class="bg-white dark:bg-white/5 p-3 rounded-lg flex items-center space-x-2 border border-tertiary/10 dark:border-white/10">
@@ -129,6 +169,8 @@ function cargarGeoJSON(event) {
         } catch (error) {
             console.error("Error leyendo GeoJSON:", error);
             alert("El archivo no es un GeoJSON válido.");
+        } finally {
+            event.target.value = ''; // Reset input so the same file can be selected again
         }
     };
     reader.readAsText(file);
