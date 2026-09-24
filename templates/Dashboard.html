@@ -58,14 +58,14 @@
     <aside id="mainSidebar" class="fixed lg:static inset-y-0 left-0 w-64 bg-[#f8f9fa] dark:bg-[#191c1d] border-r border-[#edeeef]/15 dark:border-white/5 flex flex-col font-headline font-semibold text-sm transform -translate-x-full lg:translate-x-0 transition-transform duration-300 z-[2010] shrink-0">
         <div class="p-8">
             <div class="flex items-center justify-between mb-10">
-                <div class="flex items-center space-x-3 text-center">
+                <a href="{{ url_for('site.inicio') }}" class="flex items-center space-x-3 text-center active:scale-95 transition-transform">
                     <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg">
                         <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;" translate="no">eco</span>
                     </div>
                     <div>
                         <h1 class="text-on-surface dark:text-white font-headline font-black uppercase tracking-tighter text-lg">Agro Visor</h1>
                     </div>
-                </div>
+                </a>
                 <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-full hover:bg-surface-container dark:hover:bg-white/10 text-on-surface dark:text-white">
                     <span class="material-symbols-outlined" translate="no">close</span>
                 </button>
@@ -89,10 +89,14 @@
                 </a>
             </nav>
         </div>
-        <div class="mt-auto p-8 border-t border-[#edeeef]/15 dark:border-white/5">
-            <a class="group flex items-center space-x-3 py-4 px-6 text-error opacity-80 hover:bg-error/10 hover:opacity-100 transition-all cursor-pointer active:scale-95 duration-150" href="{{ url_for('auth.logout') }}">
-                <span class="material-symbols-outlined" translate="no">logout</span>
-                <span data-i18n="nav_logout">Cerrar Sesión</span>
+        <div class="mt-auto p-6 border-t border-[#edeeef]/15 dark:border-white/5 space-y-1">
+            <a class="group flex items-center space-x-3 py-3 px-4 text-secondary dark:text-secondary/70 hover:bg-[#edeeef] dark:hover:bg-white/5 hover:text-primary dark:hover:text-primary-fixed rounded-xl transition-all cursor-pointer active:scale-95 duration-150" href="{{ url_for('site.inicio') }}">
+                <span class="material-symbols-outlined text-lg" translate="no">arrow_back</span>
+                <span class="text-xs font-bold">Página de Inicio</span>
+            </a>
+            <a class="group flex items-center space-x-3 py-3 px-4 text-error opacity-80 hover:bg-error/10 hover:opacity-100 rounded-xl transition-all cursor-pointer active:scale-95 duration-150" href="{{ url_for('auth.logout') }}">
+                <span class="material-symbols-outlined text-lg" translate="no">logout</span>
+                <span class="text-xs font-bold" data-i18n="nav_logout">Cerrar Sesión</span>
             </a>
         </div>
     </aside>
@@ -107,6 +111,11 @@
                     <span class="material-symbols-outlined" translate="no">menu_open</span>
                 </button>
                 <h2 class="font-headline tracking-tight font-bold text-base lg:text-xl text-primary dark:text-primary-fixed truncate max-w-[140px] lg:max-w-none" data-i18n="dash_header_title">Visor Geográfico</h2>
+                
+                <a href="{{ url_for('site.inicio') }}" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high dark:bg-white/5 dark:hover:bg-white/10 text-secondary dark:text-secondary/70 hover:text-primary dark:hover:text-white rounded-xl text-xs font-bold transition-all border border-outline-variant/10">
+                    <span class="material-symbols-outlined text-sm" translate="no">arrow_back</span>
+                    <span>Página Principal</span>
+                </a>
                 
                 <!-- Intelligent Search for Dashboard -->
                 {% include 'includes/search_bar.html' %}

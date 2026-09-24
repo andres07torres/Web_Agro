@@ -173,24 +173,11 @@
                     <span class="material-symbols-outlined text-base" translate="no">grid_view</span>
                     <span>Aplicación</span>
                 </a>
-                
-                <div class="flex items-center space-x-3 ml-2">
-                    <div class="hidden sm:block text-right">
-                        <p class="text-xs font-black font-headline text-on-surface dark:text-white line-clamp-1" data-i18n="prof_{{ 'admin_name' if current_user.rol|lower == 'administrador' else 'user_name' }}">{{ current_user.nombre }}</p>
-                        <p class="text-[10px] text-secondary/60 dark:text-secondary/40 uppercase tracking-widest font-bold" data-i18n="prof_{{ 'admin' if current_user.rol|lower == 'administrador' else 'user' }}">{{ current_user.rol }}</p>
-                    </div>
-                    <div class="w-10 h-10 rounded-xl bg-[#b4f4c7] text-[#00210e] flex items-center justify-center font-bold text-sm shadow-sm shrink-0 notranslate" translate="no">
-                        {{ current_user.nombre[:1] | upper }}&#8203;{{ current_user.nombre[1:2] | upper }}
-                    </div>
-                </div>
                 {% else %}
-                <div class="flex items-center gap-3">
+                <div class="flex items-center">
                     <a href="{{ url_for('auth.login') }}" class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-container text-white hover:text-on-primary-fixed rounded-xl font-bold text-xs shadow-sm transition-all active:scale-95">
                         <span class="material-symbols-outlined text-base" translate="no">login</span>
                         <span>Aplicación</span>
-                    </a>
-                    <a href="{{ url_for('auth.register') }}" class="hidden sm:inline-block text-xs font-bold text-secondary hover:text-primary dark:text-secondary/70 dark:hover:text-primary-fixed transition-all">
-                        Registrarse
                     </a>
                 </div>
                 {% endif %}
