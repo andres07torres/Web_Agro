@@ -18,19 +18,15 @@ let datosGlobales = [];
 function initMap() {
     map = L.map('map', { zoomControl: false }).setView([-1.8312, -78.1834], 7);
     
-    // TILE LAYERS
-    const CARTO_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhIjoiYWNfN2I1bzg2ZGMiLCJqdGkiOiIxYjNmMGEzYyJ9.RNIeR6MNOAzSwkolNfJ1hJADlLGhxXGlk8BpyJ1er3I';
-    const cartoAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
-    lightTiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?api_key=${CARTO_KEY}`, {
+    lightTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        subdomains: 'abcd',
-        attribution: cartoAttribution
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     });
-    darkTiles = L.tileLayer(`https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?api_key=${CARTO_KEY}`, {
+    
+    // Usamos ESRI Dark Gray para el modo oscuro, que es gratuito y no tiene marcas de agua
+    darkTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19,
-        subdomains: 'abcd',
-        attribution: cartoAttribution
+        attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
     });
 
     // Init Tile
