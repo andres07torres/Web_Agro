@@ -78,6 +78,20 @@ def procesar_netcdf():
         file.save(filepath)
 
         try:
+            # Handle ZIP extraction if necessary
+            if filepath.lower().endswith('.zip'):
+                import zipfile
+                extract_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'extracted_' + filename)
+                os.makedirs(extract_dir, exist_ok=True)
+                with zipfile.ZipFile(filepath, 'r') as zip_ref:
+                    zip_ref.extractall(extract_dir)
+                
+                # Find the first .nc file inside the extracted directory
+                nc_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(extract_dir) for f in filenames if f.endswith('.nc')]
+                if not nc_files:
+                    return jsonify({'error': 'El archivo ZIP no contiene ningún archivo .nc'}), 400
+                filepath = nc_files[0] # Usar el primer .nc encontrado
+                
             ds = xr.open_dataset(filepath)
             var_name = list(ds.data_vars)[0] 
             data_array = ds[var_name]

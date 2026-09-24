@@ -165,25 +165,42 @@ function cargarShapefile() {
 }
 
 let riosCapas = {}; // Para guardar las capas de los ríos por nombre
+let capaGrupoRios = null; // Grupo unificado para limpiar memoria fácilmente
+let canvasRendererRios = null;
 
 function descargarRiosDesdeOverpass(bounds) {
-    if (window.addNotification) window.addNotification("Buscando ríos en la zona...");
+    if (window.addNotification) window.addNotification("Buscando ríos principales en la zona...");
+    
+    // Limpiar capas anteriores para no saturar memoria
+    if (capaGrupoRios) {
+        map.removeLayer(capaGrupoRios);
+    }
+    capaGrupoRios = L.layerGroup().addTo(map);
+    riosCapas = {};
+    
+    // Crear renderer Canvas de alto rendimiento (10x más rápido que SVG)
+    if (!canvasRendererRios) {
+        canvasRendererRios = L.canvas({ padding: 0.5 });
+    }
     
     // Mostrar el contenedor del buscador y limpiar la lista
     const contenedorBuscador = document.getElementById('contenedorBuscadorRios');
     if (contenedorBuscador) contenedorBuscador.classList.remove('hidden');
     const select = document.getElementById('buscadorRios');
     if (select) select.innerHTML = '<option value="" disabled selected>Cargando ríos...</option>';
-    riosCapas = {};
     
     const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
-    const query = `[out:json];(way["waterway"="river"](${bbox});way["waterway"="stream"](${bbox}););out body;>;out skel qt;`;
+    // Optimización: Solo ríos principales y arroyos con nombre para que no se congele el navegador
+    const query = `[out:json][timeout:20];(way["waterway"="river"](${bbox});way["waterway"="stream"][name](${bbox}););out body;>;out skel qt;`;
     
     fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST',
         body: query
     })
-    .then(res => res.json())
+    .then(res => {
+        if (!res.ok) throw new Error("Respuesta no satisfactoria");
+        return res.json();
+    })
     .then(data => {
         const nodes = {};
         data.elements.forEach(e => {
@@ -197,20 +214,22 @@ function descargarRiosDesdeOverpass(bounds) {
             if (e.type === 'way' && e.tags && e.tags.waterway) {
                 const latlngs = e.nodes.map(id => nodes[id]).filter(coord => coord);
                 if (latlngs.length > 0) {
-                    const nombre = e.tags.name || 'Desconocido';
+                    const nombre = e.tags.name || '';
                     const tipo = e.tags.waterway === 'river' ? 'Río' : 'Arroyo';
                     
                     const polyline = L.polyline(latlngs, { 
                         color: '#0078FF',
-                        weight: e.tags.waterway === 'river' ? 3 : 1.5,
-                        opacity: 0.8
-                    }).bindPopup(`<b>Agua:</b> ${nombre} (${tipo})`)
-                      .addTo(map);
+                        weight: e.tags.waterway === 'river' ? 2.5 : 1.5,
+                        opacity: 0.85,
+                        renderer: canvasRendererRios // Usa Canvas para renderizado ultra ligero
+                    }).bindPopup(`<b>Agua:</b> ${nombre || 'Sin nombre'} (${tipo})`);
+                    
+                    capaGrupoRios.addLayer(polyline);
                       
                     // Guardar para el buscador si tiene nombre
-                    if (nombre !== 'Desconocido') {
-                        if (!riosCapas[nombre]) riosCapas[nombre] = L.featureGroup().addTo(map);
-                        riosCapas[nombre].addLayer(polyline);
+                    if (nombre) {
+                        if (!riosCapas[nombre]) riosCapas[nombre] = [];
+                        riosCapas[nombre].push(polyline);
                         nombresUnicos.add(nombre);
                     }
                     
@@ -220,7 +239,6 @@ function descargarRiosDesdeOverpass(bounds) {
         });
         
         // Poblar select
-        const select = document.getElementById('buscadorRios');
         if (select) {
             select.innerHTML = '<option value="" disabled selected>Selecciona un río de la lista...</option>';
             Array.from(nombresUnicos).sort().forEach(nombre => {
@@ -228,11 +246,12 @@ function descargarRiosDesdeOverpass(bounds) {
             });
         }
         
-        if (window.addNotification) window.addNotification(`Se dibujaron ${riosEncontrados} segmentos de río.`);
+        if (window.addNotification) window.addNotification(`Se cargaron ${riosEncontrados} tramos de ríos de forma optimizada.`);
     })
     .catch(err => {
         console.error("Error buscando ríos:", err);
-        if (window.addNotification) window.addNotification("Error buscando ríos. Revisa tu conexión.");
+        if (select) select.innerHTML = '<option value="" disabled selected>No se pudieron cargar los ríos</option>';
+        if (window.addNotification) window.addNotification("No se pudieron cargar todos los ríos. Intenta con una zona más pequeña.");
     });
 }
 
@@ -243,8 +262,11 @@ function enfocarRio(nombreRio) {
     
     rioSeleccionadoActual = nombreRio;
     
-    const capa = riosCapas[nombreRio];
-    map.fitBounds(capa.getBounds(), { maxZoom: 14, animate: true });
+    const polylines = riosCapas[nombreRio];
+    if (polylines.length > 0) {
+        const grupoTemporal = L.featureGroup(polylines);
+        map.fitBounds(grupoTemporal.getBounds(), { maxZoom: 14, animate: true });
+    }
     
     // Mostrar panel de degradación
     const panel = document.getElementById('panelDegradacion');
@@ -260,9 +282,9 @@ function enfocarRio(nombreRio) {
     }
     
     // Resaltar temporalmente el río
-    capa.eachLayer(layer => {
+    polylines.forEach(layer => {
         const estiloOriginal = { color: layer.options.color, weight: layer.options.weight };
-        layer.setStyle({ color: '#FF4500', weight: 6 });
+        layer.setStyle({ color: '#FF4500', weight: 5 });
         setTimeout(() => layer.setStyle(estiloOriginal), 3000);
     });
 }
@@ -324,14 +346,14 @@ function actualizarDegradacion(year) {
     }
     
     // Pintar el río actual de un color según la degradación
-    const capa = riosCapas[rioSeleccionadoActual];
-    if (capa) {
+    const polylines = riosCapas[rioSeleccionadoActual];
+    if (polylines && Array.isArray(polylines)) {
         let colorRio = '#0078FF'; // Default blue
         if (finalDegradation >= 70) colorRio = '#FF4500'; // Red
         else if (finalDegradation >= 40) colorRio = '#f97316'; // Orange
         else if (finalDegradation >= 15) colorRio = '#eab308'; // Yellow
         
-        capa.eachLayer(layer => {
+        polylines.forEach(layer => {
             layer.setStyle({ color: colorRio });
         });
     }
