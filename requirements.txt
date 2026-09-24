@@ -29,4 +29,5 @@ flask-wtf==1.2.1
 flask-limiter==3.7.0
 whitenoise==6.7.0
 dj-database-url==2.1.0
-Flask-Migrate==4.0.5
+Flask-Migrate==4.0.5
+earthengine-api
