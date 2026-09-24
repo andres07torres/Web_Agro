@@ -297,9 +297,8 @@
 
                     <!-- Procesar Todo Button -->
                     <div class="flex justify-center mt-6">
-                        <button id="btnProcesarTodo" onclick="procesarArchivosSeleccionados()" class="w-full py-4 bg-on-surface dark:bg-white/10 text-white text-[11px] tracking-widest font-black uppercase rounded-2xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex justify-center items-center space-x-2">
-                            <span class="material-symbols-outlined">rocket_launch</span>
-                            <span>Generar Todo de Golpe</span>
+                        <button id="btnProcesarTodo" onclick="procesarArchivosSeleccionados()" class="w-full py-4 bg-[#0078FF] text-white text-[11px] tracking-widest font-black uppercase rounded-2xl shadow-lg hover:bg-blue-600 hover:shadow-xl active:scale-[0.98] transition-all flex justify-center items-center">
+                            <span>Generar Capas</span>
                         </button>
                     </div>
 
@@ -315,6 +314,18 @@
                     <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-secondary dark:text-secondary/70" data-i18n="proc_status">Estado de Procesamiento</h4>
                     <div id="activeFiles" class="space-y-3">
                         <p class="text-[10px] text-outline-variant italic" data-i18n="no_files">No hay archivos activos.</p>
+                    </div>
+                </div>
+
+                <!-- Buscador de Ríos -->
+                <div class="mt-8 space-y-4 hidden" id="contenedorBuscadorRios">
+                    <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-[#0078FF]">Ríos en esta Zona</h4>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-3 text-secondary/50">search</span>
+                        <input type="text" id="buscadorRios" list="listaRios" placeholder="Buscar río por nombre..." 
+                               class="w-full pl-10 pr-4 py-3 bg-white dark:bg-black/20 border border-outline-variant/30 dark:border-white/10 rounded-xl text-[11px] focus:outline-none focus:border-[#0078FF] transition-colors text-on-surface dark:text-white placeholder-secondary/50"
+                               onchange="enfocarRio(this.value)">
+                        <datalist id="listaRios"></datalist>
                     </div>
                 </div>
 

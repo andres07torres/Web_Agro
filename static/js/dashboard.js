@@ -113,46 +113,7 @@ function cargarGeoJSON(event) {
             }).addTo(map);
             
             map.fitBounds(capaGeoJSON.getBounds());
-            
-            // --- NUEVO: Extraer ríos usando Overpass API dentro de esta zona ---
-            if (window.addNotification) window.addNotification("Buscando ríos en la zona...");
-            
-            const bounds = capaGeoJSON.getBounds();
-            const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
-            const query = `[out:json];(way["waterway"="river"](${bbox});way["waterway"="stream"](${bbox}););out body;>;out skel qt;`;
-            
-            fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                body: query
-            })
-            .then(res => res.json())
-            .then(data => {
-                const nodes = {};
-                // Guardar coordenadas de cada nodo
-                data.elements.forEach(e => {
-                    if (e.type === 'node') nodes[e.id] = [e.lat, e.lon];
-                });
-                
-                // Dibujar las líneas de los ríos
-                let riosEncontrados = 0;
-                data.elements.forEach(e => {
-                    if (e.type === 'way' && e.tags && e.tags.waterway) {
-                        const latlngs = e.nodes.map(id => nodes[id]).filter(coord => coord);
-                        if (latlngs.length > 0) {
-                            L.polyline(latlngs, { 
-                                color: '#0078FF', // Azul intenso para los ríos
-                                weight: e.tags.waterway === 'river' ? 3 : 1.5, // Ríos principales más gruesos
-                                opacity: 0.8
-                            }).bindPopup(`<b>Agua:</b> ${e.tags.name || 'Desconocido'} (${e.tags.waterway})`)
-                              .addTo(map);
-                            riosEncontrados++;
-                        }
-                    }
-                });
-                
-                if (window.addNotification) window.addNotification(`Se dibujaron ${riosEncontrados} segmentos de río.`);
-            })
-            .catch(err => console.error("Error buscando ríos:", err));
+            descargarRiosDesdeOverpass(capaGeoJSON.getBounds());
             
             // Agregar al historial visual
             document.getElementById('activeFiles').innerHTML += `
@@ -196,9 +157,95 @@ function cargarShapefile() {
                 const msg = translations[lang]['notif_upload_mask'] || "Máscara geográfica aplicada";
                 window.addNotification(msg);
             }
+            
+            descargarRiosDesdeOverpass(capaActual.getBounds());
         });
     };
     reader.readAsArrayBuffer(file);
+}
+
+let riosCapas = {}; // Para guardar las capas de los ríos por nombre
+
+function descargarRiosDesdeOverpass(bounds) {
+    if (window.addNotification) window.addNotification("Buscando ríos en la zona...");
+    
+    // Mostrar el contenedor del buscador y limpiar la lista
+    const contenedorBuscador = document.getElementById('contenedorBuscadorRios');
+    if (contenedorBuscador) contenedorBuscador.classList.remove('hidden');
+    const datalist = document.getElementById('listaRios');
+    if (datalist) datalist.innerHTML = '';
+    riosCapas = {};
+    
+    const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
+    const query = `[out:json];(way["waterway"="river"](${bbox});way["waterway"="stream"](${bbox}););out body;>;out skel qt;`;
+    
+    fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: query
+    })
+    .then(res => res.json())
+    .then(data => {
+        const nodes = {};
+        data.elements.forEach(e => {
+            if (e.type === 'node') nodes[e.id] = [e.lat, e.lon];
+        });
+        
+        let riosEncontrados = 0;
+        let nombresUnicos = new Set();
+        
+        data.elements.forEach(e => {
+            if (e.type === 'way' && e.tags && e.tags.waterway) {
+                const latlngs = e.nodes.map(id => nodes[id]).filter(coord => coord);
+                if (latlngs.length > 0) {
+                    const nombre = e.tags.name || 'Desconocido';
+                    const tipo = e.tags.waterway === 'river' ? 'Río' : 'Arroyo';
+                    
+                    const polyline = L.polyline(latlngs, { 
+                        color: '#0078FF',
+                        weight: e.tags.waterway === 'river' ? 3 : 1.5,
+                        opacity: 0.8
+                    }).bindPopup(`<b>Agua:</b> ${nombre} (${tipo})`)
+                      .addTo(map);
+                      
+                    // Guardar para el buscador si tiene nombre
+                    if (nombre !== 'Desconocido') {
+                        if (!riosCapas[nombre]) riosCapas[nombre] = L.featureGroup().addTo(map);
+                        riosCapas[nombre].addLayer(polyline);
+                        nombresUnicos.add(nombre);
+                    }
+                    
+                    riosEncontrados++;
+                }
+            }
+        });
+        
+        // Poblar datalist
+        if (datalist) {
+            Array.from(nombresUnicos).sort().forEach(nombre => {
+                datalist.innerHTML += `<option value="${nombre}">`;
+            });
+        }
+        
+        if (window.addNotification) window.addNotification(`Se dibujaron ${riosEncontrados} segmentos de río.`);
+    })
+    .catch(err => {
+        console.error("Error buscando ríos:", err);
+        if (window.addNotification) window.addNotification("Error buscando ríos. Revisa tu conexión.");
+    });
+}
+
+function enfocarRio(nombreRio) {
+    if (!nombreRio || !riosCapas[nombreRio]) return;
+    
+    const capa = riosCapas[nombreRio];
+    map.fitBounds(capa.getBounds(), { maxZoom: 14, animate: true });
+    
+    // Resaltar temporalmente el río
+    capa.eachLayer(layer => {
+        const estiloOriginal = { color: layer.options.color, weight: layer.options.weight };
+        layer.setStyle({ color: '#FF0000', weight: 6 });
+        setTimeout(() => layer.setStyle(estiloOriginal), 3000);
+    });
 }
 
 function buscarModulo(event) {
