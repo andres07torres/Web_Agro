@@ -11,6 +11,54 @@ from ..utils import allowed_file, procesar_serie
 
 api_bp = Blueprint('api', __name__)
 
+import ee
+try:
+    ee.Initialize()
+except Exception as e:
+    print("No se pudo inicializar Earth Engine (¿Ya te autenticaste con 'earthengine authenticate'?):", e)
+
+@api_bp.route('/gee_landsat', methods=['POST'])
+@login_required
+def gee_landsat():
+    try:
+        data = request.get_json()
+        year = int(data.get('year', 2014))
+        
+        # Get Landsat imagery collection based on the year
+        # Landsat 8 (2013-present), Landsat 7 (1999-present), Landsat 5 (1984-2012)
+        if year >= 2013:
+            collection = ee.ImageCollection("LANDSAT/LC08/C02/T1_TOA")
+            bands = ['B4', 'B3', 'B2'] # Red, Green, Blue
+        elif year >= 1999:
+            collection = ee.ImageCollection("LANDSAT/LE07/C02/T1_TOA")
+            bands = ['B3', 'B2', 'B1']
+        else:
+            collection = ee.ImageCollection("LANDSAT/LT05/C02/T1_TOA")
+            bands = ['B3', 'B2', 'B1']
+            
+        # Filter by year and calculate median
+        image = collection.filterDate(f'{year}-01-01', f'{year}-12-31') \
+                          .median()
+                          
+        # Calculate visualization map ID
+        vis_params = {
+            'bands': bands,
+            'min': 0,
+            'max': 0.3,
+            'gamma': 1.4
+        }
+        
+        map_id_dict = ee.Image(image).getMapId(vis_params)
+        tile_url = map_id_dict['tile_fetcher'].url_format
+        
+        return jsonify({
+            'exito': True,
+            'url': tile_url,
+            'year': year
+        })
+    except Exception as e:
+        return jsonify({'error': str(e), 'exito': False}), 500
+
 @api_bp.route('/procesar_netcdf', methods=['POST'])
 @login_required
 def procesar_netcdf():

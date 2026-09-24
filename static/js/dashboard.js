@@ -463,15 +463,68 @@ function renderizar(labels, values) {
 function actualizarNombreMascara() {
     const input = document.getElementById('archivoShapefile');
     const display = document.getElementById('nombreMascara');
-    const btn = document.getElementById('btnGenerarMascara');
     if (input.files.length > 0) {
         display.innerText = "Archivo: " + input.files[0].name;
         display.classList.remove('hidden');
-        btn.classList.remove('hidden');
     } else {
         display.classList.add('hidden');
-        btn.classList.add('hidden');
     }
+}
+
+function actualizarNombreNetCDF() {
+    const input = document.getElementById('archivoNetCDF');
+    const display = document.getElementById('nombreNetCDF');
+    if (input.files.length > 0) {
+        display.innerText = "Archivo: " + input.files[0].name;
+        display.classList.remove('hidden');
+    } else {
+        display.classList.add('hidden');
+    }
+}
+
+let pendingGeoJSONEvent = null;
+function actualizarNombreGeoJSON(event) {
+    pendingGeoJSONEvent = event;
+    const input = document.getElementById('archivoGeoJSON');
+    const display = document.getElementById('nombreGeoJSON');
+    if (input.files.length > 0) {
+        display.innerText = "Archivo: " + input.files[0].name;
+        display.classList.remove('hidden');
+    } else {
+        display.classList.add('hidden');
+        pendingGeoJSONEvent = null;
+    }
+}
+
+async function procesarArchivosSeleccionados() {
+    const btn = document.getElementById('btnProcesarTodo');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Procesando...</span>';
+    btn.classList.add('opacity-70', 'pointer-events-none');
+    
+    // Procesar de manera secuencial para no saturar
+    const hasNetCDF = document.getElementById('archivoNetCDF').files.length > 0;
+    const hasShape = document.getElementById('archivoShapefile').files.length > 0;
+    const hasGeoJSON = document.getElementById('archivoGeoJSON').files.length > 0;
+    
+    if (hasNetCDF) {
+        await subirNetCDF();
+    }
+    if (hasShape) {
+        cargarShapefile();
+    }
+    if (hasGeoJSON && pendingGeoJSONEvent) {
+        cargarGeoJSON(pendingGeoJSONEvent);
+    }
+    
+    if (!hasNetCDF && !hasShape && !hasGeoJSON) {
+        alert("Selecciona al menos un archivo primero.");
+    }
+    
+    setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.classList.remove('opacity-70', 'pointer-events-none');
+    }, 1500);
 }
 
 // Initialize on load
