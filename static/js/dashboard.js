@@ -168,7 +168,17 @@ let riosCapas = {}; // Para guardar las capas de los ríos por nombre
 let capaGrupoRios = null; // Grupo unificado para limpiar memoria fácilmente
 let canvasRendererRios = null;
 
+let controllerDescargaRios = null;
+
 function descargarRiosDesdeOverpass(bounds) {
+    if (!bounds || !bounds.isValid()) return;
+    
+    // Abortar consulta previa si todavía está corriendo
+    if (controllerDescargaRios) {
+        try { controllerDescargaRios.abort(); } catch(e) {}
+    }
+    controllerDescargaRios = new AbortController();
+    
     if (window.addNotification) window.addNotification("Buscando ríos principales en la zona...");
     
     // Limpiar capas anteriores para no saturar memoria
@@ -189,69 +199,73 @@ function descargarRiosDesdeOverpass(bounds) {
     const select = document.getElementById('buscadorRios');
     if (select) select.innerHTML = '<option value="" disabled selected>Cargando ríos...</option>';
     
-    const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
-    // Optimización: Solo ríos principales y arroyos con nombre para que no se congele el navegador
-    const query = `[out:json][timeout:20];(way["waterway"="river"](${bbox});way["waterway"="stream"][name](${bbox}););out body;>;out skel qt;`;
+    const s = bounds.getSouth().toFixed(4);
+    const w = bounds.getWest().toFixed(4);
+    const n = bounds.getNorth().toFixed(4);
+    const e = bounds.getEast().toFixed(4);
+    const bbox = `${s},${w},${n},${e}`;
+    
+    // MODO TURBO: 'out geom' devuelve las coordenadas directamente en el camino sin descargar nodos separados
+    const query = `[out:json][timeout:10];(way["waterway"~"river|stream"][name](${bbox}););out geom;`;
     
     fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST',
-        body: query
+        body: query,
+        signal: controllerDescargaRios.signal
     })
     .then(res => {
-        if (!res.ok) throw new Error("Respuesta no satisfactoria");
+        if (!res.ok) throw new Error("Servidor ocupado");
         return res.json();
     })
     .then(data => {
-        const nodes = {};
-        data.elements.forEach(e => {
-            if (e.type === 'node') nodes[e.id] = [e.lat, e.lon];
-        });
-        
         let riosEncontrados = 0;
         let nombresUnicos = new Set();
         
         data.elements.forEach(e => {
-            if (e.type === 'way' && e.tags && e.tags.waterway) {
-                const latlngs = e.nodes.map(id => nodes[id]).filter(coord => coord);
-                if (latlngs.length > 0) {
-                    const nombre = e.tags.name || '';
-                    const tipo = e.tags.waterway === 'river' ? 'Río' : 'Arroyo';
-                    
-                    const polyline = L.polyline(latlngs, { 
-                        color: '#0078FF',
-                        weight: e.tags.waterway === 'river' ? 2.5 : 1.5,
-                        opacity: 0.85,
-                        renderer: canvasRendererRios // Usa Canvas para renderizado ultra ligero
-                    }).bindPopup(`<b>Agua:</b> ${nombre || 'Sin nombre'} (${tipo})`);
-                    
-                    capaGrupoRios.addLayer(polyline);
-                      
-                    // Guardar para el buscador si tiene nombre
-                    if (nombre) {
-                        if (!riosCapas[nombre]) riosCapas[nombre] = [];
-                        riosCapas[nombre].push(polyline);
-                        nombresUnicos.add(nombre);
-                    }
-                    
-                    riosEncontrados++;
+            if (e.geometry && e.geometry.length > 1 && e.tags && e.tags.waterway) {
+                const latlngs = e.geometry.map(pt => [pt.lat, pt.lon]);
+                const nombre = e.tags.name || '';
+                const tipo = e.tags.waterway === 'river' ? 'Río' : 'Arroyo';
+                
+                const polyline = L.polyline(latlngs, { 
+                    color: '#0078FF',
+                    weight: e.tags.waterway === 'river' ? 2.5 : 1.5,
+                    opacity: 0.85,
+                    renderer: canvasRendererRios
+                }).bindPopup(`<b>Agua:</b> ${nombre || 'Sin nombre'} (${tipo})`);
+                
+                capaGrupoRios.addLayer(polyline);
+                  
+                if (nombre) {
+                    if (!riosCapas[nombre]) riosCapas[nombre] = [];
+                    riosCapas[nombre].push(polyline);
+                    nombresUnicos.add(nombre);
                 }
+                
+                riosEncontrados++;
             }
         });
         
-        // Poblar select
+        // Poblar select en una sola operación atómica de DOM (instantáneo)
         if (select) {
-            select.innerHTML = '<option value="" disabled selected>Selecciona un río de la lista...</option>';
-            Array.from(nombresUnicos).sort().forEach(nombre => {
-                select.innerHTML += `<option value="${nombre}">${nombre}</option>`;
-            });
+            if (nombresUnicos.size > 0) {
+                const lista = Array.from(nombresUnicos).sort((a,b) => a.localeCompare(b));
+                let optionsHtml = '<option value="" disabled selected>Selecciona un río de la lista...</option>';
+                for (let i = 0; i < lista.length; i++) {
+                    optionsHtml += `<option value="${lista[i]}">${lista[i]}</option>`;
+                }
+                select.innerHTML = optionsHtml;
+            } else {
+                select.innerHTML = '<option value="" disabled selected>No se encontraron ríos nombrados</option>';
+            }
         }
         
-        if (window.addNotification) window.addNotification(`Se cargaron ${riosEncontrados} tramos de ríos de forma optimizada.`);
+        if (window.addNotification) window.addNotification(`Se cargaron ${nombresUnicos.size} ríos de forma instantánea.`);
     })
     .catch(err => {
+        if (err.name === 'AbortError') return;
         console.error("Error buscando ríos:", err);
-        if (select) select.innerHTML = '<option value="" disabled selected>No se pudieron cargar los ríos</option>';
-        if (window.addNotification) window.addNotification("No se pudieron cargar todos los ríos. Intenta con una zona más pequeña.");
+        if (select) select.innerHTML = '<option value="" disabled selected>Ríos no disponibles temporalmente</option>';
     });
 }
 
@@ -670,11 +684,10 @@ async function procesarArchivosSeleccionados() {
     if (hasNetCDF) {
         await subirNetCDF();
     }
-    if (hasShape) {
-        cargarShapefile();
-    }
     if (hasGeoJSON && pendingGeoJSONEvent) {
         cargarGeoJSON(pendingGeoJSONEvent);
+    } else if (hasShape) {
+        cargarShapefile();
     }
     
     if (!hasNetCDF && !hasShape && !hasGeoJSON) {
