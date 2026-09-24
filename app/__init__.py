@@ -50,7 +50,7 @@ def create_app(config_class='config.DevelopmentConfig'):
             "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data: https://*.basemaps.cartocdn.com https://*.googleusercontent.com https://unpkg.com; "
+            "img-src 'self' data: https://*.basemaps.cartocdn.com https://tile.openstreetmap.org https://server.arcgisonline.com https://*.googleusercontent.com https://unpkg.com; "
             "connect-src 'self';"
         )
         response.headers['Content-Security-Policy'] = csp
