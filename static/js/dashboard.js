@@ -115,7 +115,17 @@ function cargarGeoJSON(event) {
             map.fitBounds(capaGeoJSON.getBounds());
             
             // Agregar al historial visual
-            agregarArchivoActivo(file.name, true); // true para indicar que es máscara/zona
+            document.getElementById('activeFiles').innerHTML += `
+                <div class="bg-white dark:bg-white/5 p-3 rounded-lg flex items-center space-x-2 border border-tertiary/10 dark:border-white/10">
+                    <span class="material-symbols-outlined text-tertiary dark:text-tertiary-fixed text-sm" style="font-variation-settings: 'FILL' 1;">public</span>
+                    <p class="text-[10px] font-black truncate text-on-surface dark:text-white/80">${file.name}</p>
+                </div>
+            `;
+            
+            // Add notification
+            if (window.addNotification) {
+                window.addNotification("Zona geográfica cargada: " + file.name);
+            }
         } catch (error) {
             console.error("Error leyendo GeoJSON:", error);
             alert("El archivo no es un GeoJSON válido.");
