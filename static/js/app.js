@@ -25,11 +25,11 @@ window.showNotifications = function() {
         return;
     }
     
-    let htmlContent = '<div class="text-left space-y-3 mt-4">';
-    notifs.slice(0, 10).forEach(n => {
-        htmlContent += `<div class="p-4 bg-surface-container-low dark:bg-white/5 rounded-xl border border-outline-variant/20 shadow-sm">
-            <p class="text-sm font-bold text-on-surface dark:text-white">${n.msg}</p>
-            <p class="text-[10px] text-secondary mt-1 font-mono">${n.time}</p>
+    let htmlContent = '<div class="text-left space-y-2 mt-4 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">';
+    notifs.slice(0, 20).forEach(n => {
+        htmlContent += `<div class="p-3 bg-surface-container-low dark:bg-white/5 rounded-xl border border-outline-variant/20 shadow-sm transition-all hover:bg-surface-container">
+            <p class="text-xs font-semibold text-on-surface dark:text-white leading-snug">${n.msg}</p>
+            <p class="text-[9px] text-secondary mt-1 font-mono">${n.time}</p>
         </div>`;
     });
     htmlContent += '</div>';
