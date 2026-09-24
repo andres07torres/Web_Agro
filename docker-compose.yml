@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    volumes:
+      - uploads:/app/static/uploads
+    restart: unless-stopped
+
+volumes:
+  uploads:
