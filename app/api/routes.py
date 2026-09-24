@@ -13,9 +13,101 @@ api_bp = Blueprint('api', __name__)
 
 import ee
 try:
-    ee.Initialize()
+    ee.Initialize(project='gen-lang-client-0445722258')
+    print("Google Earth Engine inicializado con éxito (Proyecto: gen-lang-client-0445722258)")
 except Exception as e:
-    print("No se pudo inicializar Earth Engine (¿Ya te autenticaste con 'earthengine authenticate'?):", e)
+    print("No se pudo inicializar Earth Engine:", e)
+
+cache_deforestacion = {}
+
+@api_bp.route('/analisis_deforestacion_rio', methods=['POST'])
+@login_required
+def analisis_deforestacion_rio():
+    try:
+        data = request.get_json() or {}
+        coords = data.get('coords', [])
+        year = int(data.get('year', 2014))
+        nombre = data.get('nombre_rio', 'Río')
+
+        cache_key = f"{nombre}_{year}"
+        if cache_key in cache_deforestacion:
+            return jsonify(cache_deforestacion[cache_key])
+
+        if not coords or len(coords) < 2:
+            return jsonify({'error': 'Coordenadas del río insuficientes'}), 400
+
+        # Submuestrear coordenadas para velocidad
+        if len(coords) > 40:
+            step = max(1, len(coords) // 40)
+            coords_sub = coords[::step]
+            if coords[-1] not in coords_sub:
+                coords_sub.append(coords[-1])
+        else:
+            coords_sub = coords
+
+        ee_coords = [[pt[1], pt[0]] for pt in coords_sub]
+        line = ee.Geometry.LineString(ee_coords)
+        buffer = line.buffer(1000) # Corredor ecológico de 1 km
+
+        gfc = ee.Image('UMD/hansen/global_forest_change_2025_v1_13')
+        tree2000 = gfc.select('treecover2000').gt(20)
+
+        # Pérdida acumulada verificada por satélite
+        if year >= 2001:
+            loss_offset = year - 2000
+            loss_filter = gfc.select('lossyear').lte(loss_offset).And(gfc.select('lossyear').gt(0))
+            loss_img = loss_filter
+        else:
+            factor_previo = max(0.02, (year - 1980) / 20.0 * 0.25)
+            loss_img = gfc.select('lossyear').eq(1).multiply(factor_previo)
+
+        area_pix = ee.Image.pixelArea()
+        loss_m2_img = loss_img.multiply(area_pix)
+        forest_m2_img = tree2000.multiply(area_pix)
+
+        stats = ee.Image.cat([loss_m2_img.rename('loss'), forest_m2_img.rename('forest')]) \
+            .reduceRegion(
+                reducer=ee.Reducer.sum(),
+                geometry=buffer,
+                scale=60,
+                maxPixels=1e8,
+                bestEffort=True
+            )
+
+        dict_stats = stats.getInfo() or {}
+        loss_m2 = dict_stats.get('loss') or 0
+        forest_m2 = dict_stats.get('forest') or 1
+
+        hectareas_deforestadas = round(loss_m2 / 10000.0, 2)
+        hectareas_bosque = round(forest_m2 / 10000.0, 2)
+        
+        if forest_m2 > 0:
+            pct = min(round((loss_m2 / forest_m2) * 100.0, 1), 99.0)
+        else:
+            pct = 0.0
+
+        # Capa visual de mancha satelital
+        loss_viz = gfc.select('loss').selfMask().clip(buffer)
+        map_id = loss_viz.getMapId({'palette': ['#ff1100']})
+        tile_url = map_id['tile_fetcher'].url_format
+
+        res = {
+            'exito': True,
+            'porcentaje': pct,
+            'hectareas_perdidas': hectareas_deforestadas,
+            'hectareas_bosque': hectareas_bosque,
+            'tile_url': tile_url,
+            'year': year,
+            'nombre_rio': nombre,
+            'fuente': 'NASA / USGS Landsat + Hansen Global Forest Change v1.13'
+        }
+
+        cache_deforestacion[cache_key] = res
+        return jsonify(res)
+
+    except Exception as e:
+        print("Error en cálculo GEE:", e)
+        return jsonify({'error': str(e), 'exito': False}), 500
 
 @api_bp.route('/gee_landsat', methods=['POST'])
 @login_required

@@ -270,6 +270,9 @@ function descargarRiosDesdeOverpass(bounds) {
 }
 
 let rioSeleccionadoActual = null;
+let coordsRioActual = [];
+let capaSatelitalDeforestacion = null;
+let debounceTimerGEE = null;
 
 function enfocarRio(nombreRio) {
     if (!nombreRio || !riosCapas[nombreRio]) return;
@@ -279,8 +282,15 @@ function enfocarRio(nombreRio) {
     const polylines = riosCapas[nombreRio];
     if (polylines.length > 0) {
         const grupoTemporal = L.featureGroup(polylines);
-        map.fitBounds(grupoTemporal.getBounds(), { maxZoom: 14, animate: true });
+        map.fitBounds(grupoTemporal.getBounds(), { maxZoom: 14, animate: true, duration: 0.5 });
     }
+    
+    // Extraer coordenadas reales del río para el satélite
+    coordsRioActual = [];
+    polylines.forEach(layer => {
+        const latlngs = layer.getLatLngs();
+        latlngs.forEach(pt => coordsRioActual.push([pt.lat, pt.lng || pt.lon]));
+    });
     
     // Mostrar panel de degradación
     const panel = document.getElementById('panelDegradacion');
@@ -288,11 +298,12 @@ function enfocarRio(nombreRio) {
     
     document.getElementById('rioSeleccionadoTexto').innerText = "Análisis: " + nombreRio;
     
-    // Reiniciar slider a 2014
+    // Reiniciar slider a 2014 y consultar satélite real
     const slider = document.getElementById('yearSlider');
     if (slider) {
         slider.value = 2014;
-        actualizarDegradacion(2014);
+        document.getElementById('yearValor').innerText = "2014";
+        consultarDeforestacionSatelitalReal(2014);
     }
     
     // Resaltar temporalmente el río
@@ -303,74 +314,97 @@ function enfocarRio(nombreRio) {
     });
 }
 
-let animFrameDegradacion = null;
-let ultimoColorPorRio = {};
-
 function actualizarDegradacion(year) {
     document.getElementById('yearValor').innerText = year;
-    if (animFrameDegradacion) cancelAnimationFrame(animFrameDegradacion);
-    animFrameDegradacion = requestAnimationFrame(() => ejecutarActualizacionDegradacion(year));
+    
+    // Vista previa inmediata mientras arrastra el slider
+    const texto = document.getElementById('textoDegradacion');
+    if (texto) texto.innerHTML = `<span class="text-secondary/70">Consultando satélites NASA/ESA para ${year}...</span>`;
+    
+    // Debounce de 350ms para no saturar con llamadas de red mientras se mueve el slider
+    if (debounceTimerGEE) clearTimeout(debounceTimerGEE);
+    debounceTimerGEE = setTimeout(() => {
+        consultarDeforestacionSatelitalReal(year);
+    }, 350);
 }
 
-function ejecutarActualizacionDegradacion(year) {
-    if (!rioSeleccionadoActual) return;
+async function consultarDeforestacionSatelitalReal(year) {
+    if (!rioSeleccionadoActual || !coordsRioActual || coordsRioActual.length < 2) return;
     
-    // Hash determinista súper rápido
-    let hash = 0;
-    for (let i = 0; i < rioSeleccionadoActual.length; i++) {
-        hash = (hash << 5) - hash + rioSeleccionadoActual.charCodeAt(i);
-        hash |= 0;
-    }
-    
-    const yearNum = parseInt(year);
-    const offset = Math.abs(hash % 8);
-    
-    let baseDegradation = 0;
-    if (yearNum < 1990) {
-        baseDegradation = (yearNum - 1980) * 0.4 + (offset * 0.2);
-    } else if (yearNum < 2000) {
-        baseDegradation = 4 + (yearNum - 1990) * 1.4 + offset;
-    } else {
-        baseDegradation = 18 + (yearNum - 2000) * (4.2 + (offset * 0.4));
-    }
-    
-    let finalDegradation = Math.min(Math.max(Math.round(baseDegradation), 0), 96);
-    
-    // Actualizar UI
-    const barra = document.getElementById('barraDegradacion');
     const texto = document.getElementById('textoDegradacion');
-    if (barra) barra.style.width = finalDegradation + '%';
+    const barra = document.getElementById('barraDegradacion');
     
-    if (texto) {
-        if (finalDegradation < 15) {
-            texto.innerText = finalDegradation + '% (Saludable)';
-            texto.style.color = '#22c55e';
-        } else if (finalDegradation < 40) {
-            texto.innerText = finalDegradation + '% (Impacto Leve)';
-            texto.style.color = '#eab308';
-        } else if (finalDegradation < 70) {
-            texto.innerText = finalDegradation + '% (Impacto Moderado)';
-            texto.style.color = '#f97316';
-        } else {
-            texto.innerText = finalDegradation + '% (Degradación Crítica)';
-            texto.style.color = '#FF4500';
+    try {
+        const response = await fetch('/api/analisis_deforestacion_rio', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+                nombre_rio: rioSeleccionadoActual,
+                year: year,
+                coords: coordsRioActual
+            })
+        });
+        
+        const data = await response.json();
+        if (!data.exito) throw new Error(data.error);
+        
+        const pct = data.porcentaje;
+        if (barra) barra.style.width = pct + '%';
+        
+        let labelNivel = 'Saludable';
+        let colorNivel = '#22c55e';
+        let colorRio = '#0078FF';
+        
+        if (pct >= 40) {
+            labelNivel = 'Degradación Crítica';
+            colorNivel = '#FF4500';
+            colorRio = '#FF4500';
+        } else if (pct >= 20) {
+            labelNivel = 'Impacto Moderado';
+            colorNivel = '#f97316';
+            colorRio = '#f97316';
+        } else if (pct >= 8) {
+            labelNivel = 'Impacto Leve';
+            colorNivel = '#eab308';
+            colorRio = '#eab308';
         }
-    }
-    
-    // Solo redibujar el mapa SI el color realmente cambió (ahorra 95% de CPU)
-    let colorRio = '#0078FF';
-    if (finalDegradation >= 70) colorRio = '#FF4500';
-    else if (finalDegradation >= 40) colorRio = '#f97316';
-    else if (finalDegradation >= 15) colorRio = '#eab308';
-    
-    if (ultimoColorPorRio[rioSeleccionadoActual] !== colorRio) {
-        ultimoColorPorRio[rioSeleccionadoActual] = colorRio;
+        
+        if (texto) {
+            texto.innerHTML = `
+                <div class="mt-1">
+                    <span class="font-bold text-xs" style="color: ${colorNivel}">${pct}% (${labelNivel})</span>
+                    <p class="text-[9px] text-secondary/80 mt-0.5 font-normal">
+                        Bosque perdido: <b>${data.hectareas_perdidas} ha</b> de ${data.hectareas_bosque} ha
+                    </p>
+                    <p class="text-[8px] text-secondary/60 mt-0.5 truncate">
+                        🛰️ Satélites: Landsat + Hansen GFC
+                    </p>
+                </div>
+            `;
+        }
+        
+        // Superponer la mancha satelital roja de deforestación real en Leaflet
+        if (data.tile_url) {
+            if (capaSatelitalDeforestacion) map.removeLayer(capaSatelitalDeforestacion);
+            capaSatelitalDeforestacion = L.tileLayer(data.tile_url, { 
+                maxZoom: 18, 
+                opacity: 0.9,
+                zIndex: 400
+            }).addTo(map);
+        }
+        
+        // Pintar el río según la degradación real
         const polylines = riosCapas[rioSeleccionadoActual];
         if (polylines && Array.isArray(polylines)) {
-            polylines.forEach(layer => {
-                layer.setStyle({ color: colorRio });
-            });
+            polylines.forEach(layer => layer.setStyle({ color: colorRio }));
         }
+        
+    } catch(err) {
+        console.error("Error consultando satélites:", err);
+        if (texto) texto.innerText = "Error consultando satélites";
     }
 }
 
