@@ -85,6 +85,44 @@ function updateMapLayer(isDark) {
 }
 
 // --- FUNCIONES LOGICAS ---
+
+let capaGeoJSON = null;
+
+function cargarGeoJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (capaGeoJSON) map.removeLayer(capaGeoJSON);
+            
+            capaGeoJSON = L.geoJSON(data, {
+                style: { 
+                    color: '#ff5722', // Color distinto (naranja) para diferenciarlo de la máscara verde
+                    weight: 3, 
+                    fillOpacity: 0.2,
+                    dashArray: '5, 5' // Línea punteada
+                },
+                onEachFeature: function(feature, layer) {
+                    if (feature.properties && feature.properties.name) {
+                        layer.bindPopup("<b>Zona:</b> " + feature.properties.name);
+                    }
+                }
+            }).addTo(map);
+            
+            map.fitBounds(capaGeoJSON.getBounds());
+            
+            // Agregar al historial visual
+            agregarArchivoActivo(file.name, true); // true para indicar que es máscara/zona
+        } catch (error) {
+            console.error("Error leyendo GeoJSON:", error);
+            alert("El archivo no es un GeoJSON válido.");
+        }
+    };
+    reader.readAsText(file);
+}
 function cargarShapefile() {
     var file = document.getElementById('archivoShapefile').files[0];
     if (!file) return;

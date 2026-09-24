@@ -287,6 +287,15 @@
                         </div>
                     </div>
 
+                    <!-- GeoJSON Button -->
+                    <div class="relative mt-4">
+                        <input type="file" id="archivoGeoJSON" accept=".geojson,.json" class="hidden" onchange="cargarGeoJSON(event)">
+                        <button onclick="document.getElementById('archivoGeoJSON').click()" class="w-full py-4 bg-white dark:bg-white/5 text-tertiary dark:text-tertiary-fixed border-2 border-tertiary/20 dark:border-white/10 rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center space-x-3 hover:bg-tertiary/5 dark:hover:bg-white/10 active:scale-[0.98] transition-all">
+                            <span class="material-symbols-outlined text-lg">map</span>
+                            <span>Cargar Zona (.geojson)</span>
+                        </button>
+                    </div>
+
                     <!-- Upload Status -->
                     <div id="uploadStatus" class="hidden flex flex-col items-center p-4 bg-primary/5 rounded-xl">
                         <div class="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
