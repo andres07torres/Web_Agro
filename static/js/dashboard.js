@@ -234,6 +234,7 @@ function descargarRiosDesdeOverpass(bounds) {
                     renderer: canvasRendererRios
                 }).bindPopup(`<b>Agua:</b> ${nombre || 'Sin nombre'} (${tipo})`);
                 
+                polyline._coordsOriginales = latlngs;
                 capaGrupoRios.addLayer(polyline);
                   
                 if (nombre) {
@@ -288,8 +289,19 @@ function enfocarRio(nombreRio) {
     // Extraer coordenadas reales del río para el satélite
     coordsRioActual = [];
     polylines.forEach(layer => {
-        const latlngs = layer.getLatLngs();
-        latlngs.forEach(pt => coordsRioActual.push([pt.lat, pt.lng || pt.lon]));
+        if (layer._coordsOriginales && Array.isArray(layer._coordsOriginales)) {
+            layer._coordsOriginales.forEach(pt => {
+                if (Array.isArray(pt) && pt.length >= 2) coordsRioActual.push(pt);
+            });
+        } else {
+            const latlngs = layer.getLatLngs ? layer.getLatLngs() : [];
+            const flat = Array.isArray(latlngs) ? latlngs.flat(2) : [];
+            flat.forEach(pt => {
+                if (pt && typeof pt.lat === 'number' && typeof pt.lng === 'number') {
+                    coordsRioActual.push([pt.lat, pt.lng]);
+                }
+            });
+        }
     });
     
     // Mostrar panel de degradación

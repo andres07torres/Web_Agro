@@ -12,11 +12,39 @@ from ..utils import allowed_file, procesar_serie
 api_bp = Blueprint('api', __name__)
 
 import ee
-try:
-    ee.Initialize(project='gen-lang-client-0445722258')
-    print("Google Earth Engine inicializado con éxito (Proyecto: gen-lang-client-0445722258)")
-except Exception as e:
-    print("No se pudo inicializar Earth Engine:", e)
+from google.oauth2.credentials import Credentials
+
+GEE_PROJECT_ID = 'gen-lang-client-0445722258'
+GEE_CLIENT_ID = '517222506229-vsmmajv00ul0bs7p89v5m89qs8eb9359.apps.googleusercontent.com'
+GEE_CLIENT_SECRET = 'RUP0RZ6e0pPhDzsqIJ7KlNd1'
+GEE_REFRESH_TOKEN = '1//05-I0DLs9t4uSCgYIARAAGAUSNwF-L9IrD-a9Vc1WYISIyu2IPSNXrDjT2YhOv34L2m-4gQzFiNZML0GUJjV3l4ccGpRlpq4Pf0E'
+
+def inicializar_earth_engine():
+    # 1. Intentar inicialización estándar (entorno local autenticado)
+    try:
+        ee.Initialize(project=GEE_PROJECT_ID)
+        return True
+    except Exception:
+        pass
+    
+    # 2. Intentar inicialización con credenciales portátiles (servidor de producción / VPS)
+    try:
+        creds = Credentials(
+            None,
+            refresh_token=GEE_REFRESH_TOKEN,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=GEE_CLIENT_ID,
+            client_secret=GEE_CLIENT_SECRET,
+            scopes=["https://www.googleapis.com/auth/earthengine"]
+        )
+        ee.Initialize(credentials=creds, project=GEE_PROJECT_ID)
+        print("Google Earth Engine inicializado con credenciales portátiles.")
+        return True
+    except Exception as e:
+        print("Error inicializando Earth Engine:", e)
+        return False
+
+inicializar_earth_engine()
 
 cache_deforestacion = {}
 
@@ -25,7 +53,7 @@ cache_deforestacion = {}
 def analisis_deforestacion_rio():
     try:
         data = request.get_json() or {}
-        coords = data.get('coords', [])
+        raw_coords = data.get('coords', [])
         year = int(data.get('year', 2014))
         nombre = data.get('nombre_rio', 'Río')
 
@@ -33,20 +61,30 @@ def analisis_deforestacion_rio():
         if cache_key in cache_deforestacion:
             return jsonify(cache_deforestacion[cache_key])
 
-        if not coords or len(coords) < 2:
-            return jsonify({'error': 'Coordenadas del río insuficientes'}), 400
+        # Sanitizar coordenadas para asegurar formato [lon, lat] limpio
+        clean_coords = []
+        for pt in raw_coords:
+            if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                try:
+                    lat = float(pt[0])
+                    lon = float(pt[1])
+                    clean_coords.append([lon, lat])
+                except (ValueError, TypeError):
+                    continue
 
-        # Submuestrear coordenadas para velocidad
-        if len(coords) > 40:
-            step = max(1, len(coords) // 40)
-            coords_sub = coords[::step]
-            if coords[-1] not in coords_sub:
-                coords_sub.append(coords[-1])
+        if len(clean_coords) < 2:
+            return jsonify({'error': 'Coordenadas del río insuficientes o inválidas'}), 400
+
+        # Submuestrear coordenadas para velocidad de cálculo
+        if len(clean_coords) > 40:
+            step = max(1, len(clean_coords) // 40)
+            coords_sub = clean_coords[::step]
+            if clean_coords[-1] not in coords_sub:
+                coords_sub.append(clean_coords[-1])
         else:
-            coords_sub = coords
+            coords_sub = clean_coords
 
-        ee_coords = [[pt[1], pt[0]] for pt in coords_sub]
-        line = ee.Geometry.LineString(ee_coords)
+        line = ee.Geometry.LineString(coords_sub)
         buffer = line.buffer(1000) # Corredor ecológico de 1 km
 
         gfc = ee.Image('UMD/hansen/global_forest_change_2025_v1_13')
