@@ -322,10 +322,12 @@
                     <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-[#0078FF]">Ríos en esta Zona</h4>
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-3 top-3 text-secondary/50">search</span>
-                        <input type="text" id="buscadorRios" list="listaRios" placeholder="Buscar río por nombre..." 
-                               class="w-full pl-10 pr-4 py-3 bg-white dark:bg-black/20 border border-outline-variant/30 dark:border-white/10 rounded-xl text-[11px] focus:outline-none focus:border-[#0078FF] transition-colors text-on-surface dark:text-white placeholder-secondary/50"
+                        <select id="buscadorRios" 
+                               class="w-full pl-10 pr-10 py-3 bg-white dark:bg-black/20 border border-outline-variant/30 dark:border-white/10 rounded-xl text-[11px] font-bold focus:outline-none focus:border-[#0078FF] transition-colors text-on-surface dark:text-white appearance-none cursor-pointer"
                                onchange="enfocarRio(this.value)">
-                        <datalist id="listaRios"></datalist>
+                            <option value="" disabled selected>Selecciona un río de la lista...</option>
+                        </select>
+                        <span class="material-symbols-outlined absolute right-3 top-3 text-secondary/50 pointer-events-none">expand_more</span>
                     </div>
                 </div>
 

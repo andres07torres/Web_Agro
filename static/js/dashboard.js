@@ -172,8 +172,8 @@ function descargarRiosDesdeOverpass(bounds) {
     // Mostrar el contenedor del buscador y limpiar la lista
     const contenedorBuscador = document.getElementById('contenedorBuscadorRios');
     if (contenedorBuscador) contenedorBuscador.classList.remove('hidden');
-    const datalist = document.getElementById('listaRios');
-    if (datalist) datalist.innerHTML = '';
+    const select = document.getElementById('buscadorRios');
+    if (select) select.innerHTML = '<option value="" disabled selected>Cargando ríos...</option>';
     riosCapas = {};
     
     const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
@@ -219,10 +219,12 @@ function descargarRiosDesdeOverpass(bounds) {
             }
         });
         
-        // Poblar datalist
-        if (datalist) {
+        // Poblar select
+        const select = document.getElementById('buscadorRios');
+        if (select) {
+            select.innerHTML = '<option value="" disabled selected>Selecciona un río de la lista...</option>';
             Array.from(nombresUnicos).sort().forEach(nombre => {
-                datalist.innerHTML += `<option value="${nombre}">`;
+                select.innerHTML += `<option value="${nombre}">${nombre}</option>`;
             });
         }
         
