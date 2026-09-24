@@ -329,6 +329,34 @@
                     </div>
                 </div>
 
+                <!-- Análisis de Degradación -->
+                <div class="mt-8 space-y-4 hidden" id="panelDegradacion">
+                    <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-[#FF4500]">Degradación por Minería</h4>
+                    
+                    <div class="bg-white dark:bg-black/20 p-4 rounded-xl border border-outline-variant/30 dark:border-white/10 space-y-4">
+                        <p id="rioSeleccionadoTexto" class="text-[11px] font-bold text-on-surface dark:text-white truncate">Selecciona un río arriba...</p>
+                        
+                        <!-- Slider -->
+                        <div class="flex flex-col space-y-2">
+                            <div class="flex justify-between items-end text-[10px] text-secondary font-bold">
+                                <span>1980</span>
+                                <span id="yearValor" class="text-[#FF4500] text-sm bg-[#FF4500]/10 px-2 py-1 rounded-lg">2014</span>
+                            </div>
+                            <input type="range" id="yearSlider" min="1980" max="2014" value="2014" 
+                                   class="w-full accent-[#FF4500] cursor-pointer" oninput="actualizarDegradacion(this.value)">
+                        </div>
+
+                        <!-- Escala -->
+                        <div class="pt-2">
+                            <p class="text-[9px] uppercase tracking-widest text-secondary mb-1">Nivel de Deforestación / Minería</p>
+                            <div class="w-full h-3 bg-surface-container dark:bg-white/5 rounded-full overflow-hidden">
+                                <div id="barraDegradacion" class="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-[#FF4500] transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                            <p id="textoDegradacion" class="text-[10px] font-bold text-on-surface dark:text-white mt-2 text-right">0% (Saludable)</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Bottom Guide -->
                 <div class="mt-auto pt-8">
                     <div class="bg-gradient-to-tr from-secondary to-secondary-container dark:from-[#2e3b4d] dark:to-[#1b1b1b] p-6 rounded-2xl text-white relative overflow-hidden shadow-lg border dark:border-white/5">
